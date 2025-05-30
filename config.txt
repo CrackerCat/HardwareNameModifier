@@ -1,0 +1,5 @@
+winshell
+pywin32
+pypiwin32
+ttkbootstrap
+pyinstaller

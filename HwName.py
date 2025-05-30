@@ -2,7 +2,10 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import tkinter
+
+import pywintypes
 import winshell
 import tkinter.messagebox
 import ttkbootstrap as ttk
@@ -67,8 +70,11 @@ class HardwareName:
         if srv_text.find("Can't open service") == -1:
             self.exe_full_btn.config(text="取消开机修改CPU名称")
             self.exe_full_btn.config(bootstyle="danger")
+        else:
+            self.exe_full_btn.config(text="设置开机修改CPU名称")
+            self.exe_full_btn.config(bootstyle="info")
 
-    def change(self, in_name=None):
+    def change(self, in_name=None, in_show=True):
         cpu_name = self.cpu_name_var.get()
         if in_name is not None:
             cpu_name = in_name.replace("`", " ")
@@ -80,6 +86,8 @@ class HardwareName:
             for cpu_uuid in cpu_list:
                 cpu_subs = cpu_data.open_sub(cpu_uuid)
                 cpu_subs.sets_var(cpu_item[2], cpu_name)
+        if not in_show:
+            return True
         tkinter.messagebox.showinfo(
             "修改CPU名称", "修改成功")
 
@@ -101,23 +109,29 @@ class HardwareName:
             result_ui = ""
             # 设置服务 ==========================================
             if self.exe_full_btn.cget("text")[:2] == "设置":
-                self.change()
+                self.change(in_show=False)
                 result_ui += HardwareName.NssmUI(setup_cmd)
                 result_ui += HardwareName.NssmUI(setup_dir)
                 result_ui += HardwareName.NssmUI(setup_app)
                 desktop_path = os.path.join(
                     os.environ['USERPROFILE'], 'Desktop\\HwName.lnk')
                 print(desktop_path, save_path)
-                with winshell.shortcut(desktop_path) as shortcut:
-                    shortcut.path = save_path
-                    shortcut.description = 'Hardware Name Modifier'
+                try:
+                    de = os.path.join(os.environ['USERPROFILE'], 'Desktop')
+                    if not os.path.exists(de):
+                        os.makedirs(de)
+                    with winshell.shortcut(desktop_path) as shortcut:
+                        shortcut.path = save_path
+                        shortcut.description = 'Hardware Name Modifier'
+                except (pywintypes.com_error, Exception) as err:
+                    print(err)
             else:
                 result_ui += HardwareName.NssmUI("stop HwName")
                 result_ui += HardwareName.NssmUI("remove HwName confirm")
             tkinter.messagebox.showinfo("修改服务结果", result_ui)
-            self.detect()
         except (FileNotFoundError, Exception) as err:
             tkinter.messagebox.showerror("创建服务失败", str(err))
+        self.detect()
 
     # 服务控制 =============================================================================
     @staticmethod
