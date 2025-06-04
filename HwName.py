@@ -45,7 +45,7 @@ class HardwareName:
         self.cpus = {"old": "", "new": ""}
         self.root = tk.Tk()
         self.head = ttk.Style()
-        self.root.geometry("340x190")
+        self.root.geometry("395x190")
         self.root.title("CPU名称修改工具 for Windows")
         # 字体设置 ------------------------------------------------------------
         self.font = tkinter.font.Font(family="MapleMono SC NF", size=20)
@@ -58,23 +58,25 @@ class HardwareName:
         self.gpu_name_var = tk.StringVar()
         self.gpu_list_var = tk.StringVar()
         self.cpu_name_tab = ttk.Label(self.root, text="CPU名称")
-        self.cpu_name_con = ttk.Entry(self.root, width=35)
+        self.cpu_name_con = ttk.Entry(self.root, width=42)
         self.gpu_list_tab = ttk.Label(self.root, text="GPU选择")
-        self.gpu_list_con = ttk.Combobox(self.root, width=33)
+        self.gpu_list_con = ttk.Combobox(self.root, width=40)
         self.gpu_name_tab = ttk.Label(self.root, text="GPU名称")
-        self.gpu_name_con = ttk.Entry(self.root, width=35)
-        self.exe_once_btn = ttk.Button(self.root, text="本次临时修改")
-        self.exe_full_btn = ttk.Button(self.root, text="设置开机自启")
+        self.gpu_name_con = ttk.Entry(self.root, width=42)
+        self.exe_once_btn = ttk.Button(self.root, text="临时修改")
+        self.exe_full_btn = ttk.Button(self.root, text="设置自启")
+        self.exe_back_btn = ttk.Button(self.root, text="恢复默认")
         self.exe_info_btn = ttk.Button(self.root, text="🐱 Github")
         self.cpu_name_tab.grid(column=0, row=0, pady=10, padx=5, sticky="nsew")
-        self.cpu_name_con.grid(column=1, row=0, pady=10, padx=5, columnspan=5)
+        self.cpu_name_con.grid(column=1, row=0, pady=10, padx=5, columnspan=7)
         self.gpu_list_tab.grid(column=0, row=1, pady=10, padx=5, sticky="nsew")
-        self.gpu_list_con.grid(column=1, row=1, pady=10, padx=5, columnspan=5)
+        self.gpu_list_con.grid(column=1, row=1, pady=10, padx=5, columnspan=7)
         self.gpu_name_tab.grid(column=0, row=2, pady=10, padx=5, sticky="nsew")
-        self.gpu_name_con.grid(column=1, row=2, pady=10, padx=5, columnspan=5)
+        self.gpu_name_con.grid(column=1, row=2, pady=10, padx=5, columnspan=7)
         self.exe_once_btn.grid(column=0, row=3, padx=5, columnspan=2, sticky="nsew")
         self.exe_full_btn.grid(column=2, row=3, padx=5, columnspan=2, sticky="nsew")
-        self.exe_info_btn.grid(column=4, row=3, padx=5, columnspan=2, sticky="nsew")
+        self.exe_back_btn.grid(column=4, row=3, padx=5, columnspan=2, sticky="nsew")
+        self.exe_info_btn.grid(column=6, row=3, padx=5, columnspan=2, sticky="nsew")
         self.cpu_name_con.config(textvariable=self.cpu_name_var)
         self.gpu_name_con.config(textvariable=self.gpu_name_var)
         self.gpu_list_con.config(textvariable=self.gpu_list_var)
@@ -86,15 +88,26 @@ class HardwareName:
         self.exe_once_btn.config(command=self.change)
         self.exe_full_btn.config(command=self.server)
         self.exe_info_btn.config(command=self.github)
+        self.exe_back_btn.config(command=self.cancel)
         self.loader()
-        self.detect()
         if len(in_args) >= 2 and in_args[1] == "server":
             if len(in_args) >= 3:
-                self.change(in_args[2])
+                self.change(in_args[2], in_show=False)
             else:
-                self.change()
+                self.change(self.cpus['new'], in_show=False)
             exit(0)
+        else:
+            self.detect()
         self.root.mainloop()
+
+    # 恢复默认 ###################################################
+    def cancel(self, event=None):
+        for gpu_path in self.gpus:
+            self.gpus[gpu_path]['new'] = self.gpus[gpu_path]['old']
+        self.cpus['new'] = self.cpus['old']
+        self.cpu_name_var.set(self.cpus['old'])
+        self.select(setup=False)
+        self.change()
 
     # 查找显卡 ###################################################
     def github(self, event=None):
@@ -108,10 +121,10 @@ class HardwareName:
         return None
 
     # 选中数据 ###################################################
-    def select(self, event=None):
+    def select(self, event=None, setup=True):
         # 保存之前的选项 ===================================
         set_name = self.gpu_name_var.get()
-        if self.gpu_last_var != "" and set_name != "":
+        if self.gpu_last_var != "" and set_name != "" and setup:
             self.gpus[self.gpu_last_var]["new"] = set_name
         # 设置当前的选项 ===================================
         old_name = self.gpu_list_var.get()
@@ -128,10 +141,9 @@ class HardwareName:
         cpu_last = cpu_data.open_sub("0")
         cpu_name = cpu_last.read_var(CONFIG_CPU[0][2])[0]
         self.cpu_name_var.set(cpu_name)
-        if self.cpus['old'] != "":
-            self.cpu_name_var.set(cpu_name)
+        if self.cpus['old'] == "":
+            self.cpus['old'] = cpu_name
         self.cpus['new'] = self.cpu_name_var.get()
-        self.cpus['old'] = self.cpu_name_var.get()
         # GPU =============================================
         gpu_proc = subprocess.run(
             CONFIG_GPU[0],
@@ -163,10 +175,10 @@ class HardwareName:
         self.export()
         srv_text = HardwareName.NssmUI("status HwName")
         if srv_text.find("Can't open service") == -1:
-            self.exe_full_btn.config(text="取消开机自启")
+            self.exe_full_btn.config(text="取消自启")
             self.exe_full_btn.config(bootstyle="danger")
         else:
-            self.exe_full_btn.config(text="设置开机自启")
+            self.exe_full_btn.config(text="设置自启")
             self.exe_full_btn.config(bootstyle="info")
 
     # 保存数据 =======================================================
@@ -187,11 +199,12 @@ class HardwareName:
     # 执行修改 =======================================================
     def change(self, in_gpu_name=None, in_show=True):
         self.select()
-        cpu_name = self.cpu_name_var.get()
         # 修改CPU ====================================================
-        self.cpus['new'] = cpu_name
         if in_gpu_name is not None:
             cpu_name = in_gpu_name.replace("`", " ")
+        else:
+            cpu_name = self.cpu_name_var.get()
+        self.cpus['new'] = cpu_name
         for cpu_item in CONFIG_CPU:
             cpu_data = WinReg(cpu_item[0])
             cpu_real = cpu_data.find_sub(cpu_item[1])
@@ -215,7 +228,9 @@ class HardwareName:
 
     # 设置服务 =======================================================
     def server(self):
-        main_path: str = str(os.path.basename(__file__)).replace(".py", ".exe")
+        if self.exe_full_btn.cget("text")[:2] == "设置":
+            self.change(in_show=False)
+        main_path: str = "HwName.exe"
         data_path: str = os.environ.get('APPDATA')
         save_path: str = os.path.join(data_path, main_path)
         conf_path: str = os.path.join(data_path, main_path)
@@ -239,7 +254,6 @@ class HardwareName:
             result_ui = ""
             # 设置服务 ==========================================
             if self.exe_full_btn.cget("text")[:2] == "设置":
-                self.change(in_show=False)
                 result_ui += HardwareName.NssmUI(setup_cmd)
                 result_ui += HardwareName.NssmUI(setup_dir)
                 result_ui += HardwareName.NssmUI(setup_app)
